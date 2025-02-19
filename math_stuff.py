@@ -1,7 +1,5 @@
 import numpy as np
 
-import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
@@ -41,24 +39,29 @@ def pos_vel_case_1(V_i, S_i, m, C, T, dt):
 
 
 def pos_vel_case_2(V_i, S_i, m, C, T, dt):
-    a = (C / m) ** (1 / 2)
-    A = (a + V_i) / (a - V_i)
-    B = 2 * a * C / m
+    #print(f"V_i = {V_i}, S_i = {S_i}, T = {T}  case 2")
+
 
     if T > 0 and V_i >= 0:
-        num1 = (a + V_i) * np.exp(B * dt) + (a - V_i)
-        den1 = 2 * a
-        num2 = 2 * a * (a - V_i)
-        den2 = (a + V_i) * B
-        const = a * (2 * np.log(A + 1)) / B
-        S = S_i + a * dt - num2 / den2 * np.log(num1 / den1) - const
+        a = (T / C) ** (1 / 2)
 
-        num3 = A * np.exp(B * dt) - 1
-        den3 = A * np.exp(B * dt) + 1
-
-        V = a * num3 / den3
+        # check if at terminal velocity to avoid /0 error
+        if V_i == a:
+            V = V_i
+            S = S_i + dt * V
+        else:
+            A = (a + V_i) / (a - V_i)
+            B = 2 * a * C / m
+            D = abs(A * np.exp(B * dt) + 1)
+            E = 2 * np.log(D) / B - dt
+            F = 2 *np.log(abs(A+1)) / B
+            S = S_i + a * E - a * F
+            num3 = A * np.exp(B * dt) - 1
+            den3 = A * np.exp(B * dt) + 1
+            V = a * num3 / den3
         return S, V
     elif T < 0 and V_i < 0:
+        #print("calling case 2 from case 2")
         S, V = pos_vel_case_2(-V_i, -S_i, m, C, -T, dt)
         return -S, -V
     else:
@@ -72,19 +75,32 @@ def pos_vel_case_3(V_i, S_i, m, C, T, dt):
     D = m * np.log(abs(1 / np.cos(B))) / C
     E = m * np.log(abs(1 / np.cos(A))) / C
 
-    if T > 0 and V_i < 0:
+    print(f"V_i = {V_i}, S_i = {S_i}, T = {T}")
 
+    if T > 0 > V_i:
+        print(f"T > 0 > V_i")
+        S = S_i + D - E
+        V = a * np.tan(A + a * C * dt / m)
+        if V > 0:
+            dt_0 = np.arctan(V/a)
+        return S, V
+
+        # this whole block was causing major issues
         # time at which velocity becomes 0
-        t_to_v0 = -m / (a * C) * np.arctan(V_i / a)
-        if t_to_v0 > dt:
-            S1, V1 = pos_vel_case_3(V_i, S_i, m, C, -T, t_to_v0)
-            S2, V2 = pos_vel_case_2(V1, S1, m, C, T, dt - t_to_v0)
-            return S1 + S2, V1 + V2
-        else:
-            S = S_i + D - E
-            V = a * np.tan(A + a * C * dt / m)
-            return S, V
+        # t_to_v0 = -m / (a * C) * np.arctan(V_i / a)
+        # if t_to_v0 > dt:
+        #     print("t_to_v0 > dt")
+        #     S1, V1 = pos_vel_case_3(V_i, S_i, m, C, T, t_to_v0)
+        #     print("calling case 2 from case 3")
+        #     S2, V2 = pos_vel_case_2(V1, S1, m, C, T, dt - t_to_v0)
+        #     return S1 + S2, V1 + V2
+        # else:
+        #     print("t_to_v0 < dt")
+        #     S = S_i + D - E
+        #     V = a * np.tan(A + a * C * dt / m)
+        #    return S, V
     elif T < 0 and V_i > 0:
+        print(f"T < 0 < V_i")
         S, V = pos_vel_case_3(-V_i, -S_i, m, C, -T, dt)
         return -S, -V
     else:
@@ -112,6 +128,9 @@ def plot_pos_vel(V_i, S_i, m, C, T, dt, t):
 
     S, V = S_i, V_i  # Initialize position and velocity
 
+    #positions.append(S)
+    #velocities.append(V)
+
     for _ in time_steps:
         S, V = pos_vel(V, S, m, C, T, dt)  # Update position and velocity
         positions.append(S)
@@ -135,4 +154,4 @@ def plot_pos_vel(V_i, S_i, m, C, T, dt, t):
     plt.show(block=True)
 
 
-plot_pos_vel(0, 0, 1, 1, 1, 0.01, 10)
+plot_pos_vel(5, 0, 1, 1, 0, 0.01, 5)
