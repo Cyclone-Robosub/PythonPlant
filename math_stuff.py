@@ -30,10 +30,14 @@ def pos_vel_case_1(V_i, S_i, m, C, T, dt):
         S = S_i
         V = 0
         return S, V
-    elif T == 0 and V_i != 0:
+    elif T == 0 and V_i > 0:
         S = S_i - (m / C) * np.log(m / abs(-C * V_i * dt - m))
         V = - (-1 / V_i - C * dt / m) ** (-1)
         return S, V
+    elif T == 0 and V_i < 0:
+        S = - S_i - (m / C) * np.log(m / abs(C * V_i * dt - m))
+        V = - (1 / V_i - C * dt / m) ** (-1)
+        return -S, -V
     else:
         raise ValueError("Invalid input")
 
@@ -60,11 +64,12 @@ def pos_vel_case_2(V_i, S_i, m, C, T, dt):
             den3 = A * np.exp(B * dt) + 1
             V = a * num3 / den3
         return S, V
-    elif T < 0 and V_i < 0:
+    elif T < 0 and V_i <= 0:
         #print("calling case 2 from case 2")
         S, V = pos_vel_case_2(-V_i, -S_i, m, C, -T, dt)
         return -S, -V
     else:
+        print(f"Vi: {V_i}, S: {S_i}, V: {V_i}, T: {T}, dt: {dt}")
         raise ValueError("Invalid input")
 
 
@@ -75,10 +80,9 @@ def pos_vel_case_3(V_i, S_i, m, C, T, dt):
     D = m * np.log(abs(1 / np.cos(B))) / C
     E = m * np.log(abs(1 / np.cos(A))) / C
 
-    print(f"V_i = {V_i}, S_i = {S_i}, T = {T}")
+    #print(f"V_i = {V_i}, S_i = {S_i}, T = {T}")
 
     if T > 0 > V_i:
-        print(f"T > 0 > V_i")
         S = S_i + D - E
         V = a * np.tan(A + a * C * dt / m)
         if V > 0:
@@ -100,7 +104,6 @@ def pos_vel_case_3(V_i, S_i, m, C, T, dt):
         #     V = a * np.tan(A + a * C * dt / m)
         #    return S, V
     elif T < 0 and V_i > 0:
-        print(f"T < 0 < V_i")
         S, V = pos_vel_case_3(-V_i, -S_i, m, C, -T, dt)
         return -S, -V
     else:
@@ -108,7 +111,10 @@ def pos_vel_case_3(V_i, S_i, m, C, T, dt):
 
 
 def pos_vel(V_i, S_i, m, C, T, dt):
-    if T == 0:
+    if C < 0 or m <= 0 or dt <= 0:
+        print(f"C = {C}, m = {m}, dt = {dt}")
+        raise ValueError("Invalid input")
+    elif T == 0:
         return pos_vel_case_1(V_i, S_i, m, C, T, dt)
     elif V_i == 0:
         return pos_vel_case_2(V_i, S_i, m, C, T, dt)
@@ -154,4 +160,4 @@ def plot_pos_vel(V_i, S_i, m, C, T, dt, t):
     plt.show(block=True)
 
 
-plot_pos_vel(5, 0, 1, 1, 0, 0.01, 5)
+#plot_pos_vel(1, 0, 1, 1, -1, 0.01, 5)

@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import math_stuff
 
 rev_pulse = 1100 * 1000
@@ -14,16 +15,21 @@ stop_set = np.full(8, stop_pulse)
 fwd_set = np.concatenate((np.full(4, stop_pulse), np.full(4, fwd_pulse)))
 crab_set = np.concatenate((np.full(4, stop_pulse), [fwd_pulse, rev_pulse, rev_pulse, fwd_pulse]))
 down_set = np.concatenate((np.full(4, rev_pulse), np.full(4, stop_pulse)))
-barrell = np.concatenate(([rev_pulse, fwd_pulse, rev_pulse, fwd_pulse], np.full(4, stop_pulse)))
-summer = np.concatenate(([rev_pulse, rev_pulse, fwd_pulse, fwd_pulse], np.full(4, stop_pulse)))
-spin = np.concatenate((np.full(4, stop_pulse), [fwd_pulse, rev_pulse, fwd_pulse, rev_pulse]))
-torpedo = np.concatenate(([rev_pulse, fwd_pulse, rev_pulse, fwd_pulse], np.full(4, fwd_pulse)))
+barrell_set = np.concatenate(([rev_pulse, fwd_pulse, rev_pulse, fwd_pulse], np.full(4, stop_pulse)))
+summer_set = np.concatenate(([rev_pulse, rev_pulse, fwd_pulse, fwd_pulse], np.full(4, stop_pulse)))
+spin_set = np.concatenate((np.full(4, stop_pulse), [fwd_pulse, rev_pulse, fwd_pulse, rev_pulse]))
+torpedo_set = np.concatenate(([rev_pulse, fwd_pulse, rev_pulse, fwd_pulse], np.full(4, fwd_pulse)))
 
 
 class Plant:
     def __init__(self):
+
+        # this pertains to iterative approximations done in simulation, Hz
+        self.default_frequency = 100
+
         self.mass = 5.51
-        self.mass_moment_of_inertia = np.array([0, 0, 0])
+        self.height = 0.3 # z axis height
+        self.mass_moment_of_inertia = np.array([1, 1, 1])
         self.six_axis_mass = np.full(6, 0)
         self.six_axis_mass[0:3] = np.full(3, self.mass)
         self.six_axis_mass[3:] = self.mass_moment_of_inertia
@@ -32,12 +38,20 @@ class Plant:
         self.volume_inches = 449.157
         self.volume = self.volume_inches * pow(0.0254, 3)
         self.rho_water = 1000
-        self.combined_drag_coefs = np.array([0.041, 0.05, 0.125, 0.005, 0.005, 0.005]) * self.rho_water
+        self.combined_drag_coefs = np.array([0.041, 0.05, 0.125, 0.005, 0.005, 0.005])
+        #self.combined_drag_coefs = [self.combined_drag_coefs[i] * 1000 for i in range(len(self.combined_drag_coefs))]
 
         self.current_pwms = stop_set
         self.current_position = np.array([0, 0, 0, 0, 0, 0])
         self.current_velocity = np.array([0, 0, 0, 0, 0, 0])
         self.current_acceleration = np.array([0, 0, 0, 0, 0, 0])
+
+        self.state_log = [{
+            "time": 0,
+            "pwm" : stop_set,
+            "position": np.array([0, 0, 0, 0, 0, 0]),
+            "velocity": np.array([0, 0, 0, 0, 0, 0]),
+            "acceleration": np.array([0, 0, 0, 0, 0, 0]) }]
 
         self.mass_center_inches = np.array([0.466, 0, 1.561])
         self.mass_center = self.mass_center_inches * 0.0254
@@ -108,9 +122,9 @@ class Plant:
     def set_pwm(self, pwm_set):
         self.current_pwms = pwm_set
         thrusters = np.array([self.pwm_force_scalar(pwm) for pwm in pwm_set])
-        thruster_forces = np.dot(self.wrench_matrix, thrusters)
+        thruster_forces = np.dot(thrusters, self.wrench_matrix)
         weight = self.weight_force()
-        boyancy = self.boyant_force()
+        boyancy = self.buoyant_force()
 
     def weight_force(self):
         mass = self.mass
@@ -128,12 +142,12 @@ class Plant:
         result[0:3] = R @ result[0:3]
         return result
 
-    def boyant_force(self):
+    def buoyant_force(self):
         volume = self.volume
         g = 9.81
         rho = self.rho_water
+        above_water = (self.height * self.current_position[2] / 2)
         magnitude = volume * rho * g
-
         orientation = self.current_position[3:]
         result = np.zeros(6)
 
@@ -159,35 +173,89 @@ class Plant:
         drag_force = np.zeros(6)
 
         for i in range(6):
-                drag_force[i] = self.current_velocity[i] * abs(self.current_velocity[i]) * drag_coefs[i]
+                drag_force[i] =  - self.current_velocity[i] * abs(self.current_velocity[i]) * drag_coefs[i]
 
         return drag_force
 
     def total_force(self):
         weight = self.weight_force()
-        boyancy = self.boyant_force()
-        drag = self.drag_force()
-        thrust = self.pwm_force(self.current_pwms)
 
-        all_forces = weight + boyancy + drag + thrust
+        buoyancy = self.buoyant_force()
+        #drag = self.drag_force()
+        thrust = self.pwm_force(self.current_pwms)
+        all_forces = weight + buoyancy + thrust
         return all_forces
 
+    def simulate_pwm(self, pwm_set, time):
+
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        positions = [[ self.current_position[i] for i in range(6)]]
+        velocities = [[ self.current_velocity[i] for i in range(6)]]
+        self.set_pwm(pwm_set)
+
+        for _ in time_steps:
+            positions.append([0 for i in range(6)])
+            velocities.append([0 for i in range(6)])
+            for i in range(6):
+                Si, Vi = positions[-2][i], velocities[-2][i]
+                m = self.six_axis_mass[i]
+                C = self.combined_drag_coefs[i]
+                T = self.total_force()[i]
+                print(f"i: {i}, T: {T}")
+                S, V = math_stuff.pos_vel(Vi, Si, m, C, T, dt)
+                positions[-1][i] = S
+                velocities[-1][i] = V
+
+            self.current_position = positions[-1]
+            self.current_velocity = velocities[-1]
+
+        # Plot results
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [positions[i][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [positions[i][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [positions[i][2] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Position")
+        plt.show(block=True)
 
 
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("Rads", color="tab:blue")
+        ax1.plot(time_steps, [positions[i][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [positions[i][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [positions[i][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Position")
+        plt.show(block=True)
 
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m/s", color="tab:blue")
+        ax1.plot(time_steps, [velocities[i][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [velocities[i][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [velocities[i][2] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Velocity")
+        plt.show(block=True)
 
-
-
-
-
-
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("rad/s", color="tab:blue")
+        ax1.plot(time_steps, [velocities[i][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [velocities[i][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [velocities[i][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Velocity")
+        plt.show(block=True)
 
 plant = Plant()
-print(plant.weight_force())
-print(plant.boyant_force())
-plant.current_position = np.array([0, 0, 0, np.pi/2, 0, 0])
-print(plant.weight_force())
-print(plant.boyant_force())
-print("fucker!\n")
-print(plant.total_force())
+plant.simulate_pwm(crab_set, 80)
 
