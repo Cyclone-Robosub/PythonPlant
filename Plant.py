@@ -45,7 +45,8 @@ class Plant:
         self.current_position = np.array([0, 0, 0, 0, 0, 0])
         self.current_velocity = np.array([0, 0, 0, 0, 0, 0])
         self.current_acceleration = np.array([0, 0, 0, 0, 0, 0])
-
+        self.current_totalForces = np.array([0,0,0,0,0,0])
+        #This is absolutely pointless code.
         self.state_log = [{
             "time": 0,
             "pwm" : stop_set,
@@ -97,6 +98,7 @@ class Plant:
                            'position': self.current_position,
                            'velocity': self.current_velocity,
                            'acceleration': self.current_acceleration,
+                           'totalForces':self.current_totalForces,
                            'pwm': self.current_pwms}]
 
 
@@ -268,27 +270,36 @@ class Plant:
         positions = [[ self.current_position[i] for i in range(6)]]
         velocities = [[ self.current_velocity[i] for i in range(6)]]
         acceleration = [[self.current_acceleration[i] for i in range(6)]]
+        totalForces = [[self.current_totalForces[i] for i in range(6)]]
         iterator = 0
         self.set_pwm(pwm_set)
         for _ in time_steps:
             positions.append([0 for i in range(6)])
             velocities.append([0 for i in range(6)])
             acceleration.append([0 for i in range(6)])
+            totalForces.append([0 for i in range(6)])
             for i in range(6):
                 Si, Vi = positions[-2][i], velocities[-2][i]
                 m = self.six_axis_mass[i]
                 C = self.combined_drag_coefs[i]
                 T = self.total_force()[i]
-                print(f"i: {i}, T: {T}")
+                A = T / m
+                print(f"i: {i}, T: {T}, A: {A}")
                 S, V = math_stuff.pos_vel(Vi, Si, m, C, T, dt)
                 positions[-1][i] = S
                 velocities[-1][i] = V
+                acceleration[-1][i] = A
+                totalForces[-1][i] = T
 
             self.current_position = positions[-1]
             self.current_velocity = velocities[-1]
+            self.current_acceleration = acceleration[-1]
+            self.current_totalForces = totalForces[-1]
             self.state_Log.append({'time': time_steps[iterator],
                                    'position': self.current_position,
                                     'velocity': self.current_velocity,
+                                    'acceleration':self.current_acceleration,
+                                    'totalForces':self.current_totalForces,
                                     'pwm':self.current_pwms})
             #print(self.state_Log[-1]['position'])
             iterator = iterator + 1
@@ -298,33 +309,37 @@ class Plant:
             print(f"Time: {self.state_Log[i]['time']}\n")
             print(f"Position: {self.state_Log[i]['position']}\n")
             print(f"Velocity: {self.state_Log[i]['velocity']}\n")
+            print(f"Acceleration: {self.state_Log[i]['acceleration']}\n")
+            print(f"Total Forces: {self.state_Log[i]['totalForces']}\n")
             print(f"Pwm: {self.state_Log[i]['pwm']}\n")
-    def graph_dictionary(self,time):
+    def graph_acceleration(self,time):
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
-
+        #These two functions create the craziest graphs ever. 
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("m", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.set_ylabel("rad/s", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][0]  for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
-        plt.title("Linear Position")
+        plt.title("Linear Acceleration")
         plt.show(block=True)
 
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("Rads", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.set_ylabel("rad/s", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][3]  for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
-        plt.title("Rotational Position")
+        plt.title("Rotational Acceleration")
         plt.show(block=True)
-
+    def graph_velocity(self, time):
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("m/s", color="tab:blue")
@@ -346,10 +361,57 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Velocity")
         plt.show(block=True)
+    def graph_position(self,time):
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Position")
+        plt.show(block=True)
 
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("Rads", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Position")
+        plt.show(block=True)
+    def graph_total_forces(self,time):
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Total Forces")
+        plt.show(block=True)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("Rads", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Total Forces")
+        plt.show(block=True)
 plant = Plant()
 #plant.simulate_pwm(crab_set, 80)
 plant.run_pwm(crab_set, 80)
-#plant.print_dictionary()
-plant.graph_dictionary(80)
+plant.print_dictionary()
+plant.graph_total_forces(80)
 
