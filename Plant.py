@@ -192,11 +192,13 @@ class Plant:
         time_steps = np.arange(0, time, dt)  # Generate time steps
         positions = [[ self.current_position[i] for i in range(6)]]
         velocities = [[ self.current_velocity[i] for i in range(6)]]
+        acceleration = [[self.current_acceleration[i] for i in range(6)]]
         self.set_pwm(pwm_set)
 
         for _ in time_steps:
             positions.append([0 for i in range(6)])
             velocities.append([0 for i in range(6)])
+            acceleration.append([0 for i in range(6)])
             for i in range(6):
                 Si, Vi = positions[-2][i], velocities[-2][i]
                 m = self.six_axis_mass[i]
@@ -256,6 +258,98 @@ class Plant:
         plt.title("Rotational Velocity")
         plt.show(block=True)
 
+    def run_pwm(self, pwm_set, time):
+        """This should work similarly to simulate_pwm, but does not need to produce graphs.
+          Instead, it should simply append the state list of dictionaries for every period"""
+        
+        # initial velocity and position is from last entry to state
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        positions = [[ self.current_position[i] for i in range(6)]]
+        velocities = [[ self.current_velocity[i] for i in range(6)]]
+        acceleration = [[self.current_acceleration[i] for i in range(6)]]
+        iterator = 0
+        self.set_pwm(pwm_set)
+        for _ in time_steps:
+            positions.append([0 for i in range(6)])
+            velocities.append([0 for i in range(6)])
+            acceleration.append([0 for i in range(6)])
+            for i in range(6):
+                Si, Vi = positions[-2][i], velocities[-2][i]
+                m = self.six_axis_mass[i]
+                C = self.combined_drag_coefs[i]
+                T = self.total_force()[i]
+                print(f"i: {i}, T: {T}")
+                S, V = math_stuff.pos_vel(Vi, Si, m, C, T, dt)
+                positions[-1][i] = S
+                velocities[-1][i] = V
+
+            self.current_position = positions[-1]
+            self.current_velocity = velocities[-1]
+            self.state_Log.append({'time': time_steps[iterator],
+                                   'position': self.current_position,
+                                    'velocity': self.current_velocity,
+                                    'pwm':self.current_pwms})
+            #print(self.state_Log[-1]['position'])
+            iterator = iterator + 1
+    def print_dictionary(self):
+        lengthOfDictionary = len(self.state_Log)
+        for i in range(lengthOfDictionary):
+            print(f"Time: {self.state_Log[i]['time']}\n")
+            print(f"Position: {self.state_Log[i]['position']}\n")
+            print(f"Velocity: {self.state_Log[i]['velocity']}\n")
+            print(f"Pwm: {self.state_Log[i]['pwm']}\n")
+    def graph_dictionary(self,time):
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Position")
+        plt.show(block=True)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("Rads", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['position'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Position")
+        plt.show(block=True)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m/s", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['velocity'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['velocity'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['velocity'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Velocity")
+        plt.show(block=True)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("rad/s", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['velocity'][3]  for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['velocity'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['velocity'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Velocity")
+        plt.show(block=True)
+
 plant = Plant()
-plant.simulate_pwm(crab_set, 80)
+#plant.simulate_pwm(crab_set, 80)
+plant.run_pwm(crab_set, 80)
+#plant.print_dictionary()
+plant.graph_dictionary(80)
 
