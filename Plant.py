@@ -46,13 +46,9 @@ class Plant:
         self.current_velocity = np.array([0, 0, 0, 0, 0, 0])
         self.current_acceleration = np.array([0, 0, 0, 0, 0, 0])
         self.current_totalForces = np.array([0,0,0,0,0,0])
+        self.current_weightForces = np.array([0,0,0,0,0,0])
+        self.current_buoyantForces = np.array([0,0,0,0,0,0])
         #This is absolutely pointless code.
-        self.state_log = [{
-            "time": 0,
-            "pwm" : stop_set,
-            "position": np.array([0, 0, 0, 0, 0, 0]),
-            "velocity": np.array([0, 0, 0, 0, 0, 0]),
-            "acceleration": np.array([0, 0, 0, 0, 0, 0]) }]
 
         self.mass_center_inches = np.array([0.466, 0, 1.561])
         self.mass_center = self.mass_center_inches * 0.0254
@@ -99,6 +95,8 @@ class Plant:
                            'velocity': self.current_velocity,
                            'acceleration': self.current_acceleration,
                            'totalForces':self.current_totalForces,
+                           'weightForces':self.current_weightForces,
+                           'buoyantForces':self.current_buoyantForces,
                            'pwm': self.current_pwms}]
 
 
@@ -271,6 +269,8 @@ class Plant:
         velocities = [[ self.current_velocity[i] for i in range(6)]]
         acceleration = [[self.current_acceleration[i] for i in range(6)]]
         totalForces = [[self.current_totalForces[i] for i in range(6)]]
+        weightForces = [[self.current_weightForces[i] for i in range(6)]]
+        buoyantForces = [[self.current_buoyantForces[i] for i in range(6)]]
         iterator = 0
         self.set_pwm(pwm_set)
         for _ in time_steps:
@@ -278,10 +278,14 @@ class Plant:
             velocities.append([0 for i in range(6)])
             acceleration.append([0 for i in range(6)])
             totalForces.append([0 for i in range(6)])
+            weightForces.append([0 for i in range(6)])
+            buoyantForces.append([0 for i in range(6)])
             for i in range(6):
                 Si, Vi = positions[-2][i], velocities[-2][i]
                 m = self.six_axis_mass[i]
                 C = self.combined_drag_coefs[i]
+                W = self.weight_force()[i]
+                B = self.buoyant_force()[i]
                 T = self.total_force()[i]
                 A = T / m
                 print(f"i: {i}, T: {T}, A: {A}")
@@ -290,16 +294,21 @@ class Plant:
                 velocities[-1][i] = V
                 acceleration[-1][i] = A
                 totalForces[-1][i] = T
-
+                weightForces[-1][i] = W
+                buoyantForces[-1][i] = B
             self.current_position = positions[-1]
             self.current_velocity = velocities[-1]
             self.current_acceleration = acceleration[-1]
             self.current_totalForces = totalForces[-1]
+            self.current_weightForces = weightForces[-1]
+            self.current_buoyantForces = buoyantForces[-1]
             self.state_Log.append({'time': time_steps[iterator],
                                    'position': self.current_position,
                                     'velocity': self.current_velocity,
                                     'acceleration':self.current_acceleration,
                                     'totalForces':self.current_totalForces,
+                                    'weightForces':self.current_weightForces,
+                                    'buoyantForces':self.current_buoyantForces,
                                     'pwm':self.current_pwms})
             #print(self.state_Log[-1]['position'])
             iterator = iterator + 1
@@ -311,6 +320,8 @@ class Plant:
             print(f"Velocity: {self.state_Log[i]['velocity']}\n")
             print(f"Acceleration: {self.state_Log[i]['acceleration']}\n")
             print(f"Total Forces: {self.state_Log[i]['totalForces']}\n")
+            print(f"Weight Forces: {self.state_Log[i]['weightForces']}\n")
+            print(f"Buoyant Forces: {self.state_Log[i]['buoyantForces']}\n")
             print(f"Pwm: {self.state_Log[i]['pwm']}\n")
     def graph_acceleration(self,time):
         dt = 1/self.default_frequency
@@ -409,9 +420,58 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Total Forces")
         plt.show(block=True)
+    def graph_weight_forces(self,time):
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Weight Forces")
+        plt.show(block=True)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("Rads", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Weight Forces")
+        plt.show(block=True)
+    def graph_buoyant_forces(self,time):
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Linear Buoyant Forces")
+        plt.show(block=True)
+
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("Rads", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("Rotational Buoyant Forces")
+        plt.show(block=True)
 plant = Plant()
 #plant.simulate_pwm(crab_set, 80)
 plant.run_pwm(crab_set, 80)
 plant.print_dictionary()
 plant.graph_total_forces(80)
-
+plant.graph_weight_forces(80)
+plant.graph_buoyant_forces(80)
