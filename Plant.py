@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math_stuff
 
+print("running")
+
 rev_pulse = 1100 * 1000
 stop_pulse = 1500 * 1000
 fwd_pulse_raw = 1900 * 1000  # Don't use this one, it's output can't be replicated in reverse
@@ -202,7 +204,7 @@ class Plant:
                 m = self.six_axis_mass[i]
                 C = self.combined_drag_coefs[i]
                 T = self.total_force()[i]
-                print(f"i: {i}, T: {T}")
+                #print(f"i: {i}, T: {T}")
                 S, V = math_stuff.pos_vel(Vi, Si, m, C, T, dt)
                 positions[-1][i] = S
                 velocities[-1][i] = V
@@ -257,5 +259,5 @@ class Plant:
         plt.show(block=True)
 
 plant = Plant()
-plant.simulate_pwm(crab_set, 80)
+plant.simulate_pwm(crab_set, 1)
 

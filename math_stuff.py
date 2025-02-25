@@ -69,7 +69,7 @@ def pos_vel_case_2(V_i, S_i, m, C, T, dt):
         S, V = pos_vel_case_2(-V_i, -S_i, m, C, -T, dt)
         return -S, -V
     else:
-        print(f"Vi: {V_i}, S: {S_i}, V: {V_i}, T: {T}, dt: {dt}")
+        #print(f"Vi: {V_i}, S: {S_i}, V: {V_i}, T: {T}, dt: {dt}")
         raise ValueError("Invalid input")
 
 
@@ -112,7 +112,7 @@ def pos_vel_case_3(V_i, S_i, m, C, T, dt):
 
 def pos_vel(V_i, S_i, m, C, T, dt):
     if C < 0 or m <= 0 or dt <= 0:
-        print(f"C = {C}, m = {m}, dt = {dt}")
+        #print(f"C = {C}, m = {m}, dt = {dt}")
         raise ValueError("Invalid input")
     elif T == 0:
         return pos_vel_case_1(V_i, S_i, m, C, T, dt)
