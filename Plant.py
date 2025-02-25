@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math_stuff
 
+
+
 rev_pulse = 1100 * 1000
 stop_pulse = 1500 * 1000
 fwd_pulse_raw = 1900 * 1000  # Don't use this one, it's output can't be replicated in reverse
@@ -89,7 +91,7 @@ class Plant:
         self.wrench_matrix = self.wrench_matrix_transposed.T
 
         # state_log
-        self.state_Log = [{'time': 0,
+        self.state_log = [{'time': 0,
                            'position': self.current_position,
                            'velocity': self.current_velocity,
                            'acceleration': self.current_acceleration,
@@ -98,6 +100,8 @@ class Plant:
                            'buoyantForces':self.current_buoyantForces,
                            'pwm': self.current_pwms}]
 
+    def current_time(self):
+        return self.state_log[-1]['time']
 
     def pwm_force_scalar(self, x):
         x = x / 1000
@@ -263,7 +267,10 @@ class Plant:
         
         # initial velocity and position is from last entry to state
         dt = 1/self.default_frequency
-        time_steps = np.arange(0, time, dt)  # Generate time steps
+
+        start_time = self.current_time()
+        end_time = self.current_time() + time
+        time_steps = np.arange(start_time, end_time, dt)  # Generate time steps
         positions = [[ self.current_position[i] for i in range(6)]]
         velocities = [[ self.current_velocity[i] for i in range(6)]]
         acceleration = [[self.current_acceleration[i] for i in range(6)]]
@@ -301,7 +308,7 @@ class Plant:
             self.current_totalForces = totalForces[-1]
             self.current_weightForces = weightForces[-1]
             self.current_buoyantForces = buoyantForces[-1]
-            self.state_Log.append({'time': time_steps[iterator],
+            self.state_log.append({'time': time_steps[iterator],
                                    'position': self.current_position,
                                     'velocity': self.current_velocity,
                                     'acceleration':self.current_acceleration,
@@ -312,18 +319,18 @@ class Plant:
             #print(self.state_Log[-1]['position'])
             iterator = iterator + 1
     def print_dictionary(self):
-        lengthOfDictionary = len(self.state_Log)
+        lengthOfDictionary = len(self.state_log)
         for i in range(lengthOfDictionary):
-            print(f"Time: {self.state_Log[i]['time']}\n")
-            print(f"Position: {self.state_Log[i]['position']}\n")
-            print(f"Velocity: {self.state_Log[i]['velocity']}\n")
-            print(f"Acceleration: {self.state_Log[i]['acceleration']}\n")
-            print(f"Total Forces: {self.state_Log[i]['totalForces']}\n")
-            print(f"Weight Forces: {self.state_Log[i]['weightForces']}\n")
-            print(f"Buoyant Forces: {self.state_Log[i]['buoyantForces']}\n")
-            print(f"Pwm: {self.state_Log[i]['pwm']}\n")
+            print(f"Time: {self.state_log[i]['time']}\n")
+            print(f"Position: {self.state_log[i]['position']}\n")
+            print(f"Velocity: {self.state_log[i]['velocity']}\n")
+            print(f"Acceleration: {self.state_log[i]['acceleration']}\n")
+            print(f"Total Forces: {self.state_log[i]['totalForces']}\n")
+            print(f"Weight Forces: {self.state_log[i]['weightForces']}\n")
+            print(f"Buoyant Forces: {self.state_log[i]['buoyantForces']}\n")
+            print(f"Pwm: {self.state_log[i]['pwm']}\n")
     def graph_acceleration(self):
-        time = self.state_Log[-1]['time']
+        time = self.state_log[-1]['time']
 
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
@@ -331,9 +338,9 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("rad/s", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][0]  for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['acceleration'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['acceleration'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['acceleration'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Linear Acceleration")
@@ -342,24 +349,24 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("rad/s", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][3]  for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['acceleration'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['acceleration'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['acceleration'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['acceleration'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Acceleration")
         plt.show(block=True)
 
     def graph_velocity(self):
-        time = self.state_Log[-1]['time']
+        time = self.state_log[-1]['time']
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("m/s", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['velocity'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['velocity'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['velocity'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['velocity'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['velocity'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['velocity'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Linear Velocity")
@@ -368,24 +375,24 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("rad/s", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['velocity'][3]  for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['velocity'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['velocity'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['velocity'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['velocity'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['velocity'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Velocity")
         plt.show(block=True)
     def graph_position(self):
-        time = self.state_Log[-1]['time']
+        time = self.state_log[-1]['time']
 
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("m", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['position'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['position'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['position'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Linear Position")
@@ -394,24 +401,24 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("Rads", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['position'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['position'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['position'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['position'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Position")
         plt.show(block=True)
     def graph_total_forces(self):
-        time = self.state_Log[-1]['time']
+        time = self.state_log[-1]['time']
 
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("m", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['totalForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['totalForces'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['totalForces'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Linear Total Forces")
@@ -420,24 +427,24 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("Rads", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['totalForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['totalForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['totalForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['totalForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Total Forces")
         plt.show(block=True)
     def graph_weight_forces(self):
-        time = self.state_Log[-1]['time']
+        time = self.state_log[-1]['time']
 
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("m", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['weightForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['weightForces'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['weightForces'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Linear Weight Forces")
@@ -446,24 +453,24 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("Rads", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['weightForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['weightForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['weightForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['weightForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Weight Forces")
         plt.show(block=True)
     def graph_buoyant_forces(self):
-        time = self.state_Log[-1]['time']
+        time = self.state_log[-1]['time']
 
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("m", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][1]  for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][2]  for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['buoyantForces'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['buoyantForces'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['buoyantForces'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Linear Buoyant Forces")
@@ -472,9 +479,9 @@ class Plant:
         fig, ax1 = plt.subplots()
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("Rads", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [self.state_Log[i]['buoyantForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['buoyantForces'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['buoyantForces'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['buoyantForces'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Buoyant Forces")
