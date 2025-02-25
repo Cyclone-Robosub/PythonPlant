@@ -25,4 +25,9 @@ _Please reach out to Zenyn for clarification on any of the tasks below._
 - Once you open your project, go to `Settings > Project > Python Interperter > Add Interpreter > Add Local Interperter `
 ![img.png](docs/settings.png)
 - Don't change any of the default settings, and click `Okay` ![img.png](docs/generate.png)
-- You should be ready to run the code!
+- After Python has successfully been installed, run the following commands in the PyCharm integrated terminal to install `numpy` for math and `matplotlib` for plotting.
+```bash
+pip install numpy
+pip install matplotlib
+```
+- After both have sucessfully installed, you should be ready to run the code!
