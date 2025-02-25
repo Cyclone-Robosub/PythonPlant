@@ -9,7 +9,7 @@ stop_pulse = 1500 * 1000
 fwd_pulse_raw = 1900 * 1000  # Don't use this one, it's output can't be replicated in reverse
 rev_adj = 0.97  # Thrusters are more powerful in fwd direction
 fwd_pulse = int(fwd_pulse_raw * rev_adj)
-frequency = 10
+frequency = 100
 pwm_file = "pwm_file.csv"
 
 zero_set = np.zeros(8, dtype=int)
@@ -41,7 +41,7 @@ class Plant:
         self.volume = self.volume_inches * pow(0.0254, 3)
         self.rho_water = 1000
         self.combined_drag_coefs = np.array([0.041, 0.05, 0.125, 0.005, 0.005, 0.005])
-        #self.combined_drag_coefs = [self.combined_drag_coefs[i] * 1000 for i in range(len(self.combined_drag_coefs))]
+        self.combined_drag_coefs = [self.combined_drag_coefs[i] * 10 for i in range(len(self.combined_drag_coefs))]
 
         self.current_pwms = stop_set
         self.current_position = np.array([0, 0, 0, 0, 0, 0])
