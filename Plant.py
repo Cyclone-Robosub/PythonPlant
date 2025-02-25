@@ -52,7 +52,6 @@ class Plant:
 
         self.mass_center_inches = np.array([0.466, 0, 1.561])
         self.mass_center = self.mass_center_inches * 0.0254
-
         self.volume_center = np.array([0, 0, 0.1])
 
         # Thruster positions
@@ -323,7 +322,9 @@ class Plant:
             print(f"Weight Forces: {self.state_Log[i]['weightForces']}\n")
             print(f"Buoyant Forces: {self.state_Log[i]['buoyantForces']}\n")
             print(f"Pwm: {self.state_Log[i]['pwm']}\n")
-    def graph_acceleration(self,time):
+    def graph_acceleration(self):
+        time = self.state_Log[-1]['time']
+
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         #These two functions create the craziest graphs ever. 
@@ -348,7 +349,9 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Acceleration")
         plt.show(block=True)
-    def graph_velocity(self, time):
+
+    def graph_velocity(self):
+        time = self.state_Log[-1]['time']
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
@@ -372,7 +375,9 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Velocity")
         plt.show(block=True)
-    def graph_position(self,time):
+    def graph_position(self):
+        time = self.state_Log[-1]['time']
+
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
@@ -396,7 +401,9 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Position")
         plt.show(block=True)
-    def graph_total_forces(self,time):
+    def graph_total_forces(self):
+        time = self.state_Log[-1]['time']
+
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
@@ -420,7 +427,9 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Total Forces")
         plt.show(block=True)
-    def graph_weight_forces(self,time):
+    def graph_weight_forces(self):
+        time = self.state_Log[-1]['time']
+
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
@@ -444,7 +453,9 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Weight Forces")
         plt.show(block=True)
-    def graph_buoyant_forces(self,time):
+    def graph_buoyant_forces(self):
+        time = self.state_Log[-1]['time']
+
         dt = 1/self.default_frequency
         time_steps = np.arange(0, time, dt)  # Generate time steps
         fig, ax1 = plt.subplots()
@@ -470,8 +481,10 @@ class Plant:
         plt.show(block=True)
 plant = Plant()
 #plant.simulate_pwm(crab_set, 80)
-plant.run_pwm(crab_set, 80)
-plant.print_dictionary()
-plant.graph_total_forces(80)
-plant.graph_weight_forces(80)
-plant.graph_buoyant_forces(80)
+
+# plant.run_pwm(crab_set, 8)
+
+# plant.print_dictionary()
+# plant.graph_total_forces(80)
+# plant.graph_weight_forces(80)
+# plant.graph_buoyant_forces(80)
