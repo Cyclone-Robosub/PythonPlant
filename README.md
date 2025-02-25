@@ -5,6 +5,8 @@ _Please reach out to Zenyn for clarification on any of the tasks below._
 ### Important and Urgent (I)
 - [ ] Determine theoretical unit testing criteria
   - How can we determine if the programs is doing something wrong?
+- [ ] Fix error in buoyancy/weight force calculations that result
+  - in unending rotation about x, y, axis
 ### Important but Not Urgent (II)
 - [ ] Test optimize parameters based on experimental data
 - [ ] Add input validation to all functions (ex: no negative mass)
