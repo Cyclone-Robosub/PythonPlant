@@ -102,6 +102,12 @@ class Plant:
 
     def current_time(self):
         return self.state_log[-1]['time']
+    def roll(self):
+        return self.state_log[-1]['position'][3]
+    def pitch(self):
+        return self.state_log[-1]['position'][4]
+    def yaw(self):
+        return self.state_log[-1]['position'][5]
 
     def pwm_force_scalar(self, x):
         x = x / 1000
@@ -130,39 +136,12 @@ class Plant:
         boyancy = self.buoyant_force()
 
     def weight_force(self):
-        mass = self.mass
-        g = 9.81
-        weight_magnitude = - mass * g
-
-        orientation = self.current_position[3:]
         result = np.zeros(6)
-
-        # reference weight (z direction)
-        result[0:3] = weight_magnitude * np.array([0, 0, 1])
-
-        R = math_stuff.rotation_matrix(orientation[0], orientation[1], orientation[2])
-
-        result[0:3] = R @ result[0:3]
+        result[0:3] = math_stuff.weight_force(self.roll(), self.pitch(), self.yaw(), self.mass)
         return result
 
     def buoyant_force(self):
-        volume = self.volume
-        g = 9.81
-        rho = self.rho_water
-        above_water = (self.height * self.current_position[2] / 2)
-        magnitude = volume * rho * g
-        orientation = self.current_position[3:]
-        result = np.zeros(6)
-
-        # reference weight (z direction)
-        result[0:3] = magnitude * np.array([0, 0, 1])
-
-        R = math_stuff.rotation_matrix(orientation[0], orientation[1], orientation[2])
-
-        result[0:3] = R @ result[0:3]
-
-        result[3:] = np.cross(self.volume_center, result[0:3])
-
+        result = math_stuff.buoyant_force(self.roll(), self.pitch(), self.yaw(), self.volume, self.volume_center)
         return result
 
     def drag_force(self):
@@ -486,12 +465,6 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Buoyant Forces")
         plt.show(block=True)
+
+
 plant = Plant()
-#plant.simulate_pwm(crab_set, 80)
-
-# plant.run_pwm(crab_set, 8)
-
-# plant.print_dictionary()
-# plant.graph_total_forces(80)
-# plant.graph_weight_forces(80)
-# plant.graph_buoyant_forces(80)
