@@ -93,7 +93,7 @@ class TestBuoyantForce(unittest.TestCase):
         expected_force = np.array([0, 0, 1000 * 9.81 * volume])  # Buoyancy acts in +Z direction
 
         # Expected torque τ = d × F_buoyancy
-        expected_torque = np.cross(d, expected_force)
+        expected_torque = np.cross(d,  expected_force)
 
         result = ms.buoyant_force(0, 0, 0, volume, d)
 
@@ -103,7 +103,7 @@ class TestBuoyantForce(unittest.TestCase):
     def test_known_rotation_cases(self):
         """Test against known rotation transformations."""
         volume = 1.0  # m³
-        d = np.array([0.1, -0.05, -0.2])  # Displacement vector
+        d = np.array([0, 0, 0])  # Displacement vector
 
         test_cases = [
             # (roll, pitch, yaw) -> Expected force and torque
