@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math_stuff
-
-
+from math_stuff import buoyant_force, weight_force
 
 rev_pulse = 1100 * 1000
 stop_pulse = 1500 * 1000
@@ -43,16 +42,7 @@ class Plant:
         self.combined_drag_coefs = np.array([0.041, 0.05, 0.125, 0.005, 0.005, 0.005])
         self.combined_drag_coefs = [self.combined_drag_coefs[i] * 10 for i in range(len(self.combined_drag_coefs))]
 
-        self.current_pwms = stop_set
-        self.current_position = np.array([0, 0, 0, 0, 0, 0])
-        self.current_velocity = np.array([0, 0, 0, 0, 0, 0])
-        self.current_acceleration = np.array([0, 0, 0, 0, 0, 0])
-        self.current_totalForces = np.array([0,0,0,0,0,0])
-        self.current_weightForces = np.array([0,0,0,0,0,0])
-        self.current_buoyantForces = np.array([0,0,0,0,0,0])
-        #This is absolutely pointless code.
-
-        self.mass_center_inches = np.array([0.466, 0, 1.561])
+        self.mass_center_inches = np.array([0, 0, 0])
         self.mass_center = self.mass_center_inches * 0.0254
         self.volume_center = np.array([0, 0, 0.1])
 
@@ -92,15 +82,15 @@ class Plant:
 
         # state_log
         self.state_log = [{'time': 0,
-                           'position': self.current_position,
-                           'velocity': self.current_velocity,
-                           'acceleration': self.current_acceleration,
-                           'totalForces':self.current_totalForces,
-                           'weightForces':self.current_weightForces,
-                           'buoyantForces':self.current_buoyantForces,
-                           'pwm': self.current_pwms}]
+                           'position': np.zeros(6),
+                           'velocity': np.zeros(6),
+                           'acceleration': np.zeros(6),
+                           'totalForces': np.zeros(6),
+                           'weightForces': np.zeros(6),
+                           'buoyantForces': np.zeros(6),
+                           'pwm': stop_set}]
 
-    def current_time(self):
+    def time(self):
         return self.state_log[-1]['time']
     def roll(self):
         return self.state_log[-1]['position'][3]
@@ -108,6 +98,21 @@ class Plant:
         return self.state_log[-1]['position'][4]
     def yaw(self):
         return self.state_log[-1]['position'][5]
+    def position(self):
+        return self.state_log[-1]['position']
+    def velocity(self):
+        return self.state_log[-1]['velocity']
+    def acceleration(self):
+        return self.state_log[-1]['acceleration']
+    def total_forces(self):
+        return self.state_log[-1]['totalForces']
+    def weight_forces(self):
+        return self.state_log[-1]['weightForces']
+    def buoyant_forces(self):
+        return self.state_log[-1]['buoyantForces']
+    def pwms(self):
+        return self.state_log[-1]['pwm']
+
 
     def pwm_force_scalar(self, x):
         x = x / 1000
@@ -122,28 +127,19 @@ class Plant:
         else:
             raise ValueError(f"PWM value {x} out of valid range (1100-1900)")
         return force
-
     def pwm_force(self, pwm_set):
         thruster_forces = np.array([self.pwm_force_scalar(pwm) for pwm in pwm_set])
         force = np.dot(thruster_forces, self.wrench_matrix)
         return force
-
     def set_pwm(self, pwm_set):
         self.current_pwms = pwm_set
-        thrusters = np.array([self.pwm_force_scalar(pwm) for pwm in pwm_set])
-        thruster_forces = np.dot(thrusters, self.wrench_matrix)
-        weight = self.weight_force()
-        boyancy = self.buoyant_force()
-
     def weight_force(self):
         result = np.zeros(6)
         result[0:3] = math_stuff.weight_force(self.roll(), self.pitch(), self.yaw(), self.mass)
         return result
-
     def buoyant_force(self):
-        result = math_stuff.buoyant_force(self.roll(), self.pitch(), self.yaw(), self.volume, self.volume_center)
+        result = math_stuff.buoyant_force(self.roll(), self.pitch(), self.yaw(), self.volume, -1 * self.volume_center)
         return result
-
     def drag_force(self):
         """explanation on notion:
         https: // www.notion.so / crsucd /
@@ -155,91 +151,54 @@ class Plant:
         drag_force = np.zeros(6)
 
         for i in range(6):
-                drag_force[i] =  - self.current_velocity[i] * abs(self.current_velocity[i]) * drag_coefs[i]
-
+                drag_force[i] =  - self.velocity()[i] * abs(self.velocity()[i]) * drag_coefs[i]
         return drag_force
-
     def total_force(self):
         weight = self.weight_force()
 
         buoyancy = self.buoyant_force()
         #drag = self.drag_force()
-        thrust = self.pwm_force(self.current_pwms)
+        thrust = self.pwm_force(self.pwms())
         all_forces = weight + buoyancy + thrust
         return all_forces
 
-    def simulate_pwm(self, pwm_set, time):
+    def step(self, dt):
 
-        dt = 1/self.default_frequency
-        time_steps = np.arange(0, time, dt)  # Generate time steps
-        positions = [[ self.current_position[i] for i in range(6)]]
-        velocities = [[ self.current_velocity[i] for i in range(6)]]
-        acceleration = [[self.current_acceleration[i] for i in range(6)]]
-        self.set_pwm(pwm_set)
-
-        for _ in time_steps:
-            positions.append([0 for i in range(6)])
-            velocities.append([0 for i in range(6)])
-            acceleration.append([0 for i in range(6)])
-            for i in range(6):
-                Si, Vi = positions[-2][i], velocities[-2][i]
-                m = self.six_axis_mass[i]
-                C = self.combined_drag_coefs[i]
-                T = self.total_force()[i]
-                print(f"i: {i}, T: {T}")
-                S, V = math_stuff.pos_vel(Vi, Si, m, C, T, dt)
-                positions[-1][i] = S
-                velocities[-1][i] = V
-
-            self.current_position = positions[-1]
-            self.current_velocity = velocities[-1]
-
-        # Plot results
-        fig, ax1 = plt.subplots()
-        ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("m", color="tab:blue")
-        ax1.plot(time_steps, [positions[i][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [positions[i][1] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [positions[i][2] for i in range(len(time_steps))], label="Position", color="tab:green")
-        ax1.tick_params(axis="y", labelcolor="tab:blue")
-        fig.tight_layout()  # Adjust layout to fit both plots
-        plt.title("Linear Position")
-        plt.show(block=True)
+        position = np.zeros(6)
+        velocity = np.zeros(6)
+        acceleration = np.zeros(6)
+        total_force = np.zeros(6)
+        buoyant_force = np.zeros(6)
+        weight_force = np.zeros(6)
 
 
-        fig, ax1 = plt.subplots()
-        ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("Rads", color="tab:blue")
-        ax1.plot(time_steps, [positions[i][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [positions[i][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [positions[i][5] for i in range(len(time_steps))], label="Position", color="tab:green")
-        ax1.tick_params(axis="y", labelcolor="tab:blue")
-        fig.tight_layout()  # Adjust layout to fit both plots
-        plt.title("Rotational Position")
-        plt.show(block=True)
+        for i in range(6):
+            Si = self.state_log['position'][-1][i]
+            Vi = self.state_log['velocity'][-1][i]
+            m = self.six_axis_mass[i]
+            C = self.combined_drag_coefs[i]
+            W = self.weight_force()[i]
+            B = self.buoyant_force()[i]
+            T = self.total_force()[i]
+            A = T / m
+            print(f"i: {i}, T: {T}, A: {A}")
+            S, V = math_stuff.pos_vel(Vi, Si, m, C, T, dt)
+            position[i] = S
+            velocity[i] = V
+            acceleration[i] = A
+            total_force[i] = T
+            weight_force[i] = W
+            buoyant_force[i] = B
 
-        fig, ax1 = plt.subplots()
-        ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("m/s", color="tab:blue")
-        ax1.plot(time_steps, [velocities[i][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [velocities[i][1] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [velocities[i][2] for i in range(len(time_steps))], label="Position", color="tab:green")
-        ax1.tick_params(axis="y", labelcolor="tab:blue")
-        fig.tight_layout()  # Adjust layout to fit both plots
-        plt.title("Linear Velocity")
-        plt.show(block=True)
-
-        fig, ax1 = plt.subplots()
-        ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("rad/s", color="tab:blue")
-        ax1.plot(time_steps, [velocities[i][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
-        ax1.plot(time_steps, [velocities[i][4] for i in range(len(time_steps))], label="Position", color="tab:red")
-        ax1.plot(time_steps, [velocities[i][5] for i in range(len(time_steps))], label="Position", color="tab:green")
-        ax1.tick_params(axis="y", labelcolor="tab:blue")
-        fig.tight_layout()  # Adjust layout to fit both plots
-        plt.title("Rotational Velocity")
-        plt.show(block=True)
-
+        time = self.time() + dt
+        self.state_log.append({'time': time,
+                               'position': self.current_position,
+                               'velocity': self.current_velocity,
+                               'acceleration': self.current_acceleration,
+                               'totalForces': self.current_totalForces,
+                               'weightForces': self.current_weightForces,
+                               'buoyantForces': self.current_buoyantForces,
+                               'pwm': self.current_pwms})
     def run_pwm(self, pwm_set, time):
         """This should work similarly to simulate_pwm, but does not need to produce graphs.
           Instead, it should simply append the state list of dictionaries for every period"""
@@ -247,15 +206,15 @@ class Plant:
         # initial velocity and position is from last entry to state
         dt = 1/self.default_frequency
 
-        start_time = self.current_time()
-        end_time = self.current_time() + time
+        start_time = self.time()
+        end_time = self.time() + time
         time_steps = np.arange(start_time, end_time, dt)  # Generate time steps
-        positions = [[ self.current_position[i] for i in range(6)]]
-        velocities = [[ self.current_velocity[i] for i in range(6)]]
-        acceleration = [[self.current_acceleration[i] for i in range(6)]]
-        totalForces = [[self.current_totalForces[i] for i in range(6)]]
-        weightForces = [[self.current_weightForces[i] for i in range(6)]]
-        buoyantForces = [[self.current_buoyantForces[i] for i in range(6)]]
+        positions = [[ self.position()[i] for i in range(6)]]
+        velocities = [[ self.velocity()[i] for i in range(6)]]
+        acceleration = [[self.acceleration()[i] for i in range(6)]]
+        totalForces = [[self.total_forces()[i] for i in range(6)]]
+        weightForces = [[self.weight_forces()[i] for i in range(6)]]
+        buoyantForces = [[self.buoyant_forces()[i] for i in range(6)]]
         iterator = 0
         self.set_pwm(pwm_set)
         for _ in time_steps:
@@ -281,20 +240,15 @@ class Plant:
                 totalForces[-1][i] = T
                 weightForces[-1][i] = W
                 buoyantForces[-1][i] = B
-            self.current_position = positions[-1]
-            self.current_velocity = velocities[-1]
-            self.current_acceleration = acceleration[-1]
-            self.current_totalForces = totalForces[-1]
-            self.current_weightForces = weightForces[-1]
-            self.current_buoyantForces = buoyantForces[-1]
+
             self.state_log.append({'time': time_steps[iterator],
-                                   'position': self.current_position,
-                                    'velocity': self.current_velocity,
-                                    'acceleration':self.current_acceleration,
-                                    'totalForces':self.current_totalForces,
-                                    'weightForces':self.current_weightForces,
-                                    'buoyantForces':self.current_buoyantForces,
-                                    'pwm':self.current_pwms})
+                                   'position': positions[-1],
+                                    'velocity': velocities[-1],
+                                    'acceleration': acceleration[-1],
+                                    'totalForces': totalForces[-1],
+                                    'weightForces': weightForces[-1],
+                                    'buoyantForces': buoyantForces[-1],
+                                    'pwm':pwm_set})
             #print(self.state_Log[-1]['position'])
             iterator = iterator + 1
     def print_dictionary(self):
@@ -335,7 +289,6 @@ class Plant:
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Acceleration")
         plt.show(block=True)
-
     def graph_velocity(self):
         time = self.state_log[-1]['time']
         dt = 1/self.default_frequency
@@ -464,6 +417,27 @@ class Plant:
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         fig.tight_layout()  # Adjust layout to fit both plots
         plt.title("Rotational Buoyant Forces")
+        plt.show(block=True)
+
+    def graph_pwm_signals(self):
+        time = self.state_log[-1]['time']
+        dt = 1/self.default_frequency
+        time_steps = np.arange(0, time, dt)  # Generate time steps
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("m", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][0] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][1] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][2] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][3] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][4] for i in range(len(time_steps))], label="Position", color="tab:red")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][5] for i in range(len(time_steps))], label="Position", color="tab:green")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][5] for i in range(len(time_steps))], label="Position", color="tab:blue")
+        ax1.plot(time_steps, [self.state_log[i]['pwm'][5] for i in range(len(time_steps))], label="Position", color="tab:red")
+
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        fig.tight_layout()  # Adjust layout to fit both plots
+        plt.title("PWM Signals")
         plt.show(block=True)
 
 
