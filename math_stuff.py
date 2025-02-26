@@ -2,6 +2,9 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+# Constants (keep all uppercase for consistency)
+RHO = 1000
+GRAVITY = 9.81
 
 def rotation_matrix(roll, pitch, yaw):
     # Rotation matrix around X-axis (roll)
@@ -24,14 +27,34 @@ def rotation_matrix(roll, pitch, yaw):
 
     return R
 
-def weight_force(roll, pitch, yaw, mass, g=9.81):
+
+def wrap_to_pi(angle):
+    """
+    Wrap an angle from (-∞, ∞) to (-π, π).
+
+    :param angle: NumPy array or list of angle in radians
+    :return: NumPy array with angle wrapped to the range (-π, π)
+    """
+    converted_angle = (angle + np.pi) % (2 * np.pi) - np.pi
+    # converted_angle = 2*np.atan(np.tan(angle/2)) # secondary option for calculating angle
+
+    if converted_angle == -1* np.pi:
+        return np.pi
+    return converted_angle
+
+def wrap_array_to_pi(angles):
+    result = np.zeros_like(angles)
+    for i  in range(len(angles)):
+        result[i] = wrap_to_pi(angles[i])
+
+def weight_force(roll, pitch, yaw, mass, g=GRAVITY):
     g_vector = np.array([0, 0, -mass * g])  # Gravity force in world frame (downward)
     R = rotation_matrix(roll, pitch, yaw)  # Compute rotation matrix
     F_rotated = R @ g_vector  # Transform gravity force to rotated frame
     return F_rotated
 
 
-def buoyant_force(roll, pitch, yaw, volume, d, rho=1000, g=9.81):
+def buoyant_force(roll, pitch, yaw, volume, d, rho=RHO, g=GRAVITY):
     """
     Compute the buoyant force and torque on an object submerged in a fluid.
 
@@ -45,13 +68,11 @@ def buoyant_force(roll, pitch, yaw, volume, d, rho=1000, g=9.81):
     :return: 1D NumPy array [Fx, Fy, Fz, Mx, My, Mz]
     """
     d = np.array(d)  # Ensure d is a NumPy array
-    gravity_vector = np.array([0, 0, -1])  # Gravity acts downward in world frame
-    buoyant_force_magnitude = -1 * rho * g * volume  # Magnitude of buoyant force
-    buoyant_force_world = buoyant_force_magnitude * gravity_vector  # In world frame
+    b_vector = np.array([0, 0, rho * g * volume])  # Gravity acts downward in world frame
 
     # Rotate buoyant force to the object's frame
     R = rotation_matrix(roll, pitch, yaw)
-    buoyant_force_body = R @ buoyant_force_world
+    buoyant_force_body = R @ b_vector
 
     # Compute torque using cross product τ = d × F_buoyancy
     torque = np.cross(-d, buoyant_force_body)

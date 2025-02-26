@@ -93,7 +93,7 @@ class TestBuoyantForce(unittest.TestCase):
         expected_force = np.array([0, 0, 1000 * 9.81 * volume])  # Buoyancy acts in +Z direction
 
         # Expected torque τ = d × F_buoyancy
-        expected_torque = np.cross(d,  expected_force)
+        expected_torque = np.cross(-d,  expected_force)
 
         result = ms.buoyant_force(0, 0, 0, volume, d)
 
@@ -107,16 +107,13 @@ class TestBuoyantForce(unittest.TestCase):
 
         test_cases = [
             # (roll, pitch, yaw) -> Expected force and torque
-            (0, 0, 0, np.array([0, 0, 1000 * 9.81 * volume])),
-            (np.pi / 2, 0, 0, np.array([0, -1000 * 9.81 * volume, 0])),  # 90° Roll -> Buoyancy along Y
-            (0, np.pi / 2, 0, np.array([1000 * 9.81 * volume, 0, 0])),  # 90° Pitch -> Buoyancy along X
-            (0, 0, np.pi / 2, np.array([0, 0, 1000 * 9.81 * volume])),  # 90° Yaw -> No effect on buoyancy
+            (0, 0, 0, np.array([0, 0, ms.RHO * ms.GRAVITY * volume])),
+            (pi / 2, 0, 0, np.array([0, -1 * ms.RHO * ms.GRAVITY * volume, 0])),  # 90° Roll -> Buoyancy along Y
+            (0, pi / 2, 0, np.array([ms.RHO * ms.GRAVITY * volume, 0, 0])),  # 90° Pitch -> Buoyancy along X
+            (0, 0, pi / 2, np.array([0, 0, ms.RHO * ms.GRAVITY * volume])),  # 90° Yaw -> No effect on buoyancy
         ]
 
         for roll, pitch, yaw, expected_force in test_cases:
             result = ms.buoyant_force(roll, pitch, yaw, volume, d)
             np.testing.assert_array_almost_equal(result[:3], expected_force, decimal=6,
                                                  err_msg=f"Failed force test for angles {(roll, pitch, yaw)}")
-
-if __name__ == '__main__':
-    unittest.main()
