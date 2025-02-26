@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import math_stuff as ms
 import unittest
@@ -117,3 +116,53 @@ class TestBuoyantForce(unittest.TestCase):
             result = ms.buoyant_force(roll, pitch, yaw, volume, d)
             np.testing.assert_array_almost_equal(result[:3], expected_force, decimal=6,
                                                  err_msg=f"Failed force test for angles {(roll, pitch, yaw)}")
+
+
+class TestPosVel(unittest.TestCase):
+    def test_1(self):
+        # V_i, S_i, m, C, T, dt
+        Vi, Si, m, C, T, dt = 0, 0, 1, 1, 1, 0.1
+        V, S = ms.pos_vel(Vi, Si, m, C, T, dt)
+        self.assertTrue(V > Vi and S > Si)
+    def test_2(self):
+        Vi, Si, m, C, T, dt = 0, 0, 1, 1, -1, 0.1
+        V, S = ms.pos_vel(Vi, Si, m, C, T, dt)
+        self.assertTrue(V < Vi and S < Si)
+
+class TestPwmFuncs(unittest.TestCase):
+    def test_1(self):
+        pwms = [1101, 1300, 1500, 1700, 1899]
+        pwms = [pwm * 1000 for pwm in pwms]
+        for pwm in pwms:
+            pwm_model = ms.PWMModel()
+            force = pwm_model.pwm_force_scalar(pwm)
+            inv = pwm_model.force_to_pwm_scalar(force)
+            print(f"{pwm} -> {inv}")
+            self.assertAlmostEqual(pwm, inv, places=6,
+                                   msg=f"Failed for pwm {pwm}")
+
+class TestPseudoInverse(unittest.TestCase):
+    def test_1(self):
+
+        for i in range(10):
+            np.random.seed(0)  # For reproducibility
+            # 1) Create a random W (6x8)
+            W = np.random.rand(6, 8)
+
+            # 2) Create a random "true" T (8x1)
+            T_true = np.random.rand(8, 1)
+
+            # 3) Compute F = W * T_true  (should be 6x1)
+            F = W @ T_true
+
+            # 4) Estimate T from F
+            T_est = ms.estimate_t(W, F)
+
+            # 5) Compare T_est with T_true
+            #    We'll measure the error (e.g., L2 norm)
+            error = np.linalg.norm(T_est - T_true)
+            print("T_true:\n", T_true.flatten())
+            print("T_est:\n", T_est.flatten())
+            print(f"Error (L2 norm): {error:.6e}")
+
+            self.assertLess(error, 1)
